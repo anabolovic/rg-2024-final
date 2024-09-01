@@ -1,11 +1,13 @@
-# project_base
-Prazan projekat sa pratećim bibliotekama koje koristimo na času. 
+Description:
 
-# Uputstvo
-1. `git clone https://github.com/matf-racunarska-grafika/project_base.git`
-2. CLion -> Open -> path/to/my/project_base
-3. Main se nalazi u src/main.cpp
-4. Cpp fajlovi idu u src folder
-5. Zaglavlja (h i hpp) fajlovi idu u include
-6. Šejderi idu u folder shaders. `Vertex shader` ima ekstenziju `.vs`, `fragment shader` ima ekstenziju `.fs`
-7. ALT+SHIFT+F10 -> project_base -> run
+This project is a 3D scene rendering application using OpenGL, GLFW, and GLM. 
+It showcases a cat model, a moon, and a textured ground plane. 
+The scene includes dynamic lighting effects such as point and directional lights. 
+The application uses ImGui for GUI controls to adjust the scene's parameters.
+
+Controls:
+
+    Mouse: Look around.
+    R: Give can a small walk
+    Escape: Close the application.
+
