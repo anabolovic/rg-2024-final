@@ -40,6 +40,14 @@ bool firstMouse = true;
 float deltaTime = 0.0f;
 float lastFrame = 0.0f;
 
+struct DirectionalLight {
+        glm::vec3 direction;
+
+        glm::vec3 ambient;
+        glm::vec3 diffuse;
+        glm::vec3 specular;
+};
+
 struct PointLight {
     glm::vec3 position;
     glm::vec3 ambient;
@@ -56,9 +64,13 @@ struct ProgramState {
     bool ImGuiEnabled = false;
     Camera camera;
     bool CameraMouseMovementUpdateEnabled = true;
-    glm::vec3 backpackPosition = glm::vec3(0.0f);
-    float backpackScale = 1.0f;
+    glm::vec3 catPosition = glm::vec3(0.0f, -3.0f, -3.0f);
+    float catRotationAngle = 0.0f; // Add this line for rotation
+    float catScale = 0.05f;
+    glm::vec3 bottomPosition = glm::vec3(0.0,-16.0,0.0);
+    float bottomScale = 10.0f;
     PointLight pointLight;
+    DirectionalLight directionalLight;
     ProgramState()
             : camera(glm::vec3(0.0f, 0.0f, 3.0f)) {}
 
@@ -161,23 +173,32 @@ int main() {
 
     // build and compile shaders
     // -------------------------
-    Shader ourShader("resources/shaders/2.model_lighting.vs", "resources/shaders/2.model_lighting.fs");
+    Shader catShader("resources/shaders/2.model_lighting.vs", "resources/shaders/2.model_lighting.fs");
+    Shader bottomShader("resources/shaders/ground.vs", "resources/shaders/ground.fs");
 
     // load models
     // -----------
-    Model ourModel("resources/objects/backpack/backpack.obj");
-    ourModel.SetShaderTextureNamePrefix("material.");
+    Model catModel("resources/objects/cat/12221_Cat_v1_l3.obj");
+    catModel.SetShaderTextureNamePrefix("material.");
+
+    Model bottomModel("resources/objects/ground/terrain.obj");
+    bottomModel.SetShaderTextureNamePrefix("material.");
 
     PointLight& pointLight = programState->pointLight;
-    pointLight.position = glm::vec3(4.0f, 4.0, 0.0);
-    pointLight.ambient = glm::vec3(0.1, 0.1, 0.1);
-    pointLight.diffuse = glm::vec3(0.6, 0.6, 0.6);
-    pointLight.specular = glm::vec3(1.0, 1.0, 1.0);
+    pointLight.position = glm::vec3(2.0f, 4.0f, 2.0f);  // Closer to the cat model
+    pointLight.ambient = glm::vec3(0.5f, 0.5f, 0.5f);
+    pointLight.diffuse = glm::vec3(1.0f, 0.9f, 0.7f);
+    pointLight.specular = glm::vec3(1.0f, 1.0f, 1.0f);
 
     pointLight.constant = 1.0f;
     pointLight.linear = 0.09f;
     pointLight.quadratic = 0.032f;
 
+    DirectionalLight& directionalLight = programState->directionalLight;
+    directionalLight.direction = glm::vec3(-10.0f, -5.0f, -2.0f);
+    directionalLight.ambient = glm::vec3(0.3f, 0.3f, 0.3f);  // Increased ambient light
+    directionalLight.diffuse = glm::vec3(1.0f, 0.9f, 0.7f);  // Increased diffuse light
+    directionalLight.specular = glm::vec3(1.0f, 1.0f, 1.0f);  // Increased specular light
 
 
     // draw in wireframe
@@ -203,31 +224,63 @@ int main() {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         // don't forget to enable shader before setting uniforms
-        ourShader.use();
-        pointLight.position = glm::vec3(4.0 * cos(currentFrame), 4.0f, 4.0 * sin(currentFrame));
-        ourShader.setVec3("pointLight.position", pointLight.position);
-        ourShader.setVec3("pointLight.ambient", pointLight.ambient);
-        ourShader.setVec3("pointLight.diffuse", pointLight.diffuse);
-        ourShader.setVec3("pointLight.specular", pointLight.specular);
-        ourShader.setFloat("pointLight.constant", pointLight.constant);
-        ourShader.setFloat("pointLight.linear", pointLight.linear);
-        ourShader.setFloat("pointLight.quadratic", pointLight.quadratic);
-        ourShader.setVec3("viewPosition", programState->camera.Position);
-        ourShader.setFloat("material.shininess", 32.0f);
+        catShader.use();
+        pointLight.position = glm::vec3(3.0f, -3.0f, 0.0f);
+        catShader.setVec3("pointLight.position", pointLight.position);
+        catShader.setVec3("pointLight.ambient", pointLight.ambient);
+        catShader.setVec3("pointLight.diffuse", pointLight.diffuse);
+        catShader.setVec3("pointLight.specular", pointLight.specular);
+        catShader.setFloat("pointLight.constant", pointLight.constant);
+        catShader.setFloat("pointLight.linear", pointLight.linear);
+        catShader.setFloat("pointLight.quadratic", pointLight.quadratic);
+        catShader.setVec3("viewPosition", programState->camera.Position);
+        catShader.setFloat("material.shininess", 32.0f);
         // view/projection transformations
         glm::mat4 projection = glm::perspective(glm::radians(programState->camera.Zoom),
                                                 (float) SCR_WIDTH / (float) SCR_HEIGHT, 0.1f, 100.0f);
         glm::mat4 view = programState->camera.GetViewMatrix();
-        ourShader.setMat4("projection", projection);
-        ourShader.setMat4("view", view);
+        catShader.setMat4("projection", projection);
+        catShader.setMat4("view", view);
 
         // render the loaded model
         glm::mat4 model = glm::mat4(1.0f);
         model = glm::translate(model,
-                               programState->backpackPosition); // translate it down so it's at the center of the scene
-        model = glm::scale(model, glm::vec3(programState->backpackScale));    // it's a bit too big for our scene, so scale it down
-        ourShader.setMat4("model", model);
-        ourModel.Draw(ourShader);
+                               programState->catPosition); // translate it down so it's at the center of the scene
+        model = glm::rotate(model, glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+        model = glm::rotate(model, glm::radians(programState->catRotationAngle), glm::vec3(0.0f, 0.0f, 1.0f));
+        model = glm::scale(model, glm::vec3(programState->catScale));    // it's a bit too big for our scene, so scale it down
+        catShader.setMat4("model", model);
+        catModel.Draw(catShader);
+
+        bottomShader.use();
+        bottomShader.setVec3("directionalLight.direction",glm::vec3(-1.0f,-0.5f,-1.0f));
+        bottomShader.setVec3("directionalLight.ambient",glm::vec3(0.1f,0.1f,0.1f));
+        bottomShader.setVec3("directionalLight.diffuse",glm::vec3(0.9f,0.7f,0.5f));
+        bottomShader.setVec3("directionalLight.specular",glm::vec3(0.05f,0.05f,0.05f));
+
+        bottomShader.setVec3("viewPosition", programState->camera.Position);
+        bottomShader.setFloat("material.shininess", 32.0f);
+
+        bottomShader.setMat4("projection", projection);
+        bottomShader.setMat4("view", view);
+
+        unsigned int specularTextureID = TextureFromFile("specular.png", "resources/objects/ground");
+
+        glActiveTexture(GL_TEXTURE0);
+        bottomShader.setInt("material.texture_diffuse1", 0);
+
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, specularTextureID);
+        bottomShader.setInt("material.texture_specular1", 1);
+
+
+        model = glm::mat4(1.0f);
+        model = glm::translate(model,glm::vec3(programState->bottomPosition));
+        //model = glm::rotate(model, glm::radians(45.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+        //model = glm::rotate(model, glm::radians(-50.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+        model = glm::scale(model,glm::vec3(programState->bottomScale));
+        bottomShader.setMat4("model", model);
+        bottomModel.Draw(bottomShader);
 
         if (programState->ImGuiEnabled)
             DrawImGui(programState);
@@ -265,6 +318,9 @@ void processInput(GLFWwindow *window) {
         programState->camera.ProcessKeyboard(LEFT, deltaTime);
     if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
         programState->camera.ProcessKeyboard(RIGHT, deltaTime);
+
+    if (glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS)
+        programState->catPosition.z += 0.1f * deltaTime;
 }
 
 // glfw: whenever the window size changed (by OS or user resize) this callback function executes
@@ -312,8 +368,8 @@ void DrawImGui(ProgramState *programState) {
         ImGui::Text("Hello text");
         ImGui::SliderFloat("Float slider", &f, 0.0, 1.0);
         ImGui::ColorEdit3("Background color", (float *) &programState->clearColor);
-        ImGui::DragFloat3("Backpack position", (float*)&programState->backpackPosition);
-        ImGui::DragFloat("Backpack scale", &programState->backpackScale, 0.05, 0.1, 4.0);
+        ImGui::DragFloat3("Backpack position", (float*)&programState->catPosition);
+        ImGui::DragFloat("Backpack scale", &programState->catScale, 0.05, 0.1, 4.0);
 
         ImGui::DragFloat("pointLight.constant", &programState->pointLight.constant, 0.05, 0.0, 1.0);
         ImGui::DragFloat("pointLight.linear", &programState->pointLight.linear, 0.05, 0.0, 1.0);
@@ -344,5 +400,9 @@ void key_callback(GLFWwindow *window, int key, int scancode, int action, int mod
         } else {
             glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
         }
+    }
+
+    if (key == GLFW_KEY_R && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
+        programState->catRotationAngle -= 5.0f;  // Move forward along the z-axis
     }
 }
