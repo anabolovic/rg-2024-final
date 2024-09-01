@@ -4,10 +4,12 @@
 
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
+#include <stb_image.h>
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
+#include <learnopengl/shader_m.h>
 
 #include <learnopengl/filesystem.h>
 #include <learnopengl/shader.h>
@@ -64,9 +66,12 @@ struct ProgramState {
     bool ImGuiEnabled = false;
     Camera camera;
     bool CameraMouseMovementUpdateEnabled = true;
-    glm::vec3 catPosition = glm::vec3(0.0f, -3.0f, -3.0f);
+    glm::vec3 catPosition = glm::vec3(0.0f, -3.0f, -9.0f);
     float catRotationAngle = 0.0f; // Add this line for rotation
     float catScale = 0.05f;
+    glm::vec3 moonPosition = glm::vec3(2.0f, 3.0f, -10.0f);
+    float moonRotationAngle = 0.0f; // Add this line for rotation
+    float moonScale = 0.1f;
     glm::vec3 bottomPosition = glm::vec3(0.0,-16.0,0.0);
     float bottomScale = 10.0f;
     PointLight pointLight;
@@ -78,6 +83,8 @@ struct ProgramState {
 
     void LoadFromFile(std::string filename);
 };
+
+
 
 void ProgramState::SaveToFile(std::string filename) {
     std::ofstream out(filename);
@@ -175,6 +182,7 @@ int main() {
     // -------------------------
     Shader catShader("resources/shaders/2.model_lighting.vs", "resources/shaders/2.model_lighting.fs");
     Shader bottomShader("resources/shaders/ground.vs", "resources/shaders/ground.fs");
+    Shader moonShader("resources/shaders/sun.vs", "resources/shaders/sun.fs");
 
     // load models
     // -----------
@@ -184,15 +192,18 @@ int main() {
     Model bottomModel("resources/objects/ground/terrain.obj");
     bottomModel.SetShaderTextureNamePrefix("material.");
 
+    Model moonModel("resources/objects/sun/Sun.obj");
+    moonModel.SetShaderTextureNamePrefix("material.");
+
     PointLight& pointLight = programState->pointLight;
-    pointLight.position = glm::vec3(2.0f, 4.0f, 2.0f);  // Closer to the cat model
+    pointLight.position = glm::vec3(0.0f, 10.0f, 0.0f);  // Closer to the cat model
     pointLight.ambient = glm::vec3(0.5f, 0.5f, 0.5f);
     pointLight.diffuse = glm::vec3(1.0f, 0.9f, 0.7f);
     pointLight.specular = glm::vec3(1.0f, 1.0f, 1.0f);
 
     pointLight.constant = 1.0f;
-    pointLight.linear = 0.09f;
-    pointLight.quadratic = 0.032f;
+    pointLight.linear = 0.0f;
+    pointLight.quadratic = 0.0f;
 
     DirectionalLight& directionalLight = programState->directionalLight;
     directionalLight.direction = glm::vec3(-10.0f, -5.0f, -2.0f);
@@ -223,6 +234,10 @@ int main() {
         glClearColor(programState->clearColor.r, programState->clearColor.g, programState->clearColor.b, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+        glm::mat4 projection = glm::perspective(glm::radians(programState->camera.Zoom),
+                                                (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
+        glm::mat4 view = glm::mat4(glm::mat3(programState->camera.GetViewMatrix()));
+
         // don't forget to enable shader before setting uniforms
         catShader.use();
         pointLight.position = glm::vec3(3.0f, -3.0f, 0.0f);
@@ -236,21 +251,46 @@ int main() {
         catShader.setVec3("viewPosition", programState->camera.Position);
         catShader.setFloat("material.shininess", 32.0f);
         // view/projection transformations
-        glm::mat4 projection = glm::perspective(glm::radians(programState->camera.Zoom),
-                                                (float) SCR_WIDTH / (float) SCR_HEIGHT, 0.1f, 100.0f);
-        glm::mat4 view = programState->camera.GetViewMatrix();
         catShader.setMat4("projection", projection);
         catShader.setMat4("view", view);
 
         // render the loaded model
         glm::mat4 model = glm::mat4(1.0f);
+        float r = 2.0f;
+        auto rotateVec = glm::vec3(glm::cos(programState->catRotationAngle), 0.0f, glm::sin(programState->catRotationAngle));
         model = glm::translate(model,
-                               programState->catPosition); // translate it down so it's at the center of the scene
+                               programState->catPosition + r * rotateVec);
         model = glm::rotate(model, glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-        model = glm::rotate(model, glm::radians(programState->catRotationAngle), glm::vec3(0.0f, 0.0f, 1.0f));
         model = glm::scale(model, glm::vec3(programState->catScale));    // it's a bit too big for our scene, so scale it down
         catShader.setMat4("model", model);
         catModel.Draw(catShader);
+
+        moonShader.use();
+        // pointLight.position = glm::vec3(3.0f, -3.0f, 0.0f);
+        moonShader.setVec3("pointLight.position", pointLight.position);
+        moonShader.setVec3("pointLight.ambient", pointLight.ambient);
+        moonShader.setVec3("pointLight.diffuse", pointLight.diffuse);
+        moonShader.setVec3("pointLight.specular", pointLight.specular);
+        moonShader.setFloat("pointLight.constant", pointLight.constant);
+        moonShader.setFloat("pointLight.linear", pointLight.linear);
+        moonShader.setFloat("pointLight.quadratic", pointLight.quadratic);
+        // moonShader.setVec3("directionalLight.direction",glm::vec3(-1.0f,-0.5f,-1.0f));
+        // moonShader.setVec3("directionalLight.ambient",glm::vec3(0.1f,0.1f,0.1f));
+        // moonShader.setVec3("directionalLight.diffuse",glm::vec3(0.9f,0.7f,0.5f));
+        // moonShader.setVec3("directionalLight.specular",glm::vec3(0.05f,0.05f,0.05f));
+        moonShader.setVec3("viewPosition", programState->camera.Position);
+        moonShader.setFloat("material.shininess", 32.0f);
+        moonShader.setMat4("projection", projection);
+        moonShader.setMat4("view", view);
+
+        // render the loaded model
+        glm::mat4 moonMatrix = glm::mat4(1.0f);
+        moonMatrix = glm::translate(moonMatrix, programState->moonPosition); // translate it down so it's at the center of the scene
+        moonMatrix = glm::rotate(moonMatrix, glm::radians(programState->moonRotationAngle), glm::vec3(0.0f, 1.0f, 0.0f));
+        moonMatrix = glm::scale(moonMatrix, glm::vec3(programState->moonScale)); // it's a bit too big for our scene, so scale it down
+        moonShader.setMat4("model", moonMatrix);
+        moonModel.Draw(moonShader);
+        programState->moonRotationAngle += 10.0f * deltaTime;
 
         bottomShader.use();
         bottomShader.setVec3("directionalLight.direction",glm::vec3(-1.0f,-0.5f,-1.0f));
@@ -283,7 +323,7 @@ int main() {
         bottomModel.Draw(bottomShader);
 
         if (programState->ImGuiEnabled)
-            DrawImGui(programState);
+//            DrawImGui(programState);
 
 
 
@@ -295,9 +335,9 @@ int main() {
 
     programState->SaveToFile("resources/program_state.txt");
     delete programState;
-    ImGui_ImplOpenGL3_Shutdown();
-    ImGui_ImplGlfw_Shutdown();
-    ImGui::DestroyContext();
+//    ImGui_ImplOpenGL3_Shutdown();
+//    ImGui_ImplGlfw_Shutdown();
+//    ImGui::DestroyContext();
     // glfw: terminate, clearing all previously allocated GLFW resources.
     // ------------------------------------------------------------------
     glfwTerminate();
@@ -369,6 +409,7 @@ void DrawImGui(ProgramState *programState) {
         ImGui::SliderFloat("Float slider", &f, 0.0, 1.0);
         ImGui::ColorEdit3("Background color", (float *) &programState->clearColor);
         ImGui::DragFloat3("Backpack position", (float*)&programState->catPosition);
+        ImGui::DragFloat3("Point light position", (float*)&programState->pointLight.position);
         ImGui::DragFloat("Backpack scale", &programState->catScale, 0.05, 0.1, 4.0);
 
         ImGui::DragFloat("pointLight.constant", &programState->pointLight.constant, 0.05, 0.0, 1.0);
@@ -403,6 +444,6 @@ void key_callback(GLFWwindow *window, int key, int scancode, int action, int mod
     }
 
     if (key == GLFW_KEY_R && (action == GLFW_PRESS || action == GLFW_REPEAT)) {
-        programState->catRotationAngle -= 5.0f;  // Move forward along the z-axis
+        programState->catRotationAngle -= 0.1f;  // Move forward along the z-axis
     }
 }
