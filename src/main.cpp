@@ -255,12 +255,12 @@ int main() {
 
     vector<std::string> skyboxSides
             {
-                    FileSystem::getPath("resources/textures/cubemaps/space/back.jpg"),
+                    FileSystem::getPath("resources/textures/cubemaps/space/right.jpg"),
+                    FileSystem::getPath("resources/textures/cubemaps/space/left.jpg"),
+                    FileSystem::getPath("resources/textures/cubemaps/space/up.jpg"),
                     FileSystem::getPath("resources/textures/cubemaps/space/down.jpg"),
                     FileSystem::getPath("resources/textures/cubemaps/space/front.jpg"),
-                    FileSystem::getPath("resources/textures/cubemaps/space/left.jpg"),
-                    FileSystem::getPath("resources/textures/cubemaps/space/right.jpg"),
-                    FileSystem::getPath("resources/textures/cubemaps/space/up.jpg")
+                    FileSystem::getPath("resources/textures/cubemaps/space/back.jpg")
             };
     unsigned int cubemapTexture = loadCubemap(skyboxSides);
 
