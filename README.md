@@ -10,4 +10,3 @@ Controls:
     Mouse: Look around.
     R: Give can a small walk
     Escape: Close the application.
-
